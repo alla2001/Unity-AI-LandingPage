@@ -335,16 +335,19 @@
             container.innerHTML = '<p style="color: var(--text-secondary);">No models available at the moment.</p>';
           } else {
             container.innerHTML = data.models.map(model => `
-              <div class="feature-card" style="cursor: pointer;" onclick="showModelDocs('${model.id}')">
-                <div class="feature-icon">${model.featured ? '⭐' : '🤖'}</div>
-                <h3>${model.name}</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 1rem;">${model.description}</p>
-                <p style="font-size: 0.875rem; color: var(--accent-primary);">
-                  ${model.tokensPerRequest} token${model.tokensPerRequest > 1 ? 's' : ''} per request
-                </p>
-                <button class="btn-primary btn-small" style="margin-top: 1rem;">
-                  View API Docs
-                </button>
+              <div class="feature-card ${model.id === 'live-painting' ? 'ai-live-paint-card' : ''}" style="cursor: pointer;" onclick="showModelDocs('${model.id}')">
+                ${model.id === 'live-painting' ? '<div class="model-card-overlay"></div>' : ''}
+                <div class="model-card-content">
+                  <div class="feature-icon">${model.featured ? '⭐' : '🤖'}</div>
+                  <h3>${model.name}</h3>
+                  <p style="color: var(--text-secondary); margin-bottom: 1rem;">${model.description}</p>
+                  <p style="font-size: 0.875rem; color: var(--accent-primary);">
+                    ${model.tokensPerRequest} token${model.tokensPerRequest > 1 ? 's' : ''} per request
+                  </p>
+                  <button class="btn-primary btn-small" style="margin-top: 1rem;">
+                    View API Docs
+                  </button>
+                </div>
               </div>
             `).join('');
 
