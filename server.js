@@ -14,7 +14,7 @@ const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const path = require('path');
-const { initializeDatabase, initializeHelpers } = require('./config/database');
+const { initializeDatabase } = require('./config/database');
 const passport = require('./config/passport');
 
 // Initialize Express app
@@ -56,9 +56,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Initialize database and prepared statements
-initializeDatabase();
-initializeHelpers();
+// Initialize database (async operation)
+initializeDatabase().catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
+});
 
 // Start token renewal scheduler
 const { startTokenRenewalScheduler } = require('./config/scheduler');
