@@ -49,7 +49,7 @@ router.post('/register',
 
       // Create user with 20 free tokens
       const result = await createUser(email, passwordHash);
-      const userId = result.lastInsertRowid;
+      const userId = Number(result.lastInsertRowid);
 
       // Generate verification token
       const verificationToken = crypto.randomBytes(32).toString('hex');

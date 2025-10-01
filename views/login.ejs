@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - AI SaaS Platform</title>
   <link rel="stylesheet" href="/css/styles.css">
+  <script src="/js/notifications.js"></script>
 </head>
 <body>
   <div class="auth-container">
@@ -82,12 +83,12 @@
         if (data.success) {
           window.location.href = data.redirect || '/dashboard';
         } else {
-          alert(data.message || 'Login failed');
+          notify.error(data.message || 'Login failed');
           submitBtn.disabled = false;
           submitBtn.textContent = originalText;
         }
       } catch (error) {
-        alert('An error occurred. Please try again.');
+        notify.error('An error occurred. Please try again.');
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
       }

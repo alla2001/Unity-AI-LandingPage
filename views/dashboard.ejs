@@ -6,6 +6,7 @@
   <title>Dashboard - AI SaaS Platform</title>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="https://js.stripe.com/v3/"></script>
+  <script src="/js/notifications.js"></script>
 </head>
 <body>
   <!-- Navigation -->
@@ -188,10 +189,10 @@
           document.getElementById('newKeyModal').style.display = 'flex';
           loadApiKeys();
         } else {
-          alert(data.message);
+          notify.error(data.message);
         }
       } catch (error) {
-        alert('Failed to create API key');
+        notify.error('Failed to create API key');
       }
     });
 
@@ -199,7 +200,7 @@
     document.getElementById('copyKeyBtn').addEventListener('click', () => {
       const keyValue = document.getElementById('newApiKeyValue').textContent;
       navigator.clipboard.writeText(keyValue);
-      alert('API key copied to clipboard!');
+      notify.success('API key copied to clipboard!');
     });
 
     // Close modal
@@ -256,13 +257,13 @@
         const data = await response.json();
 
         if (data.success) {
-          alert('API key revoked successfully');
+          notify.success('API key revoked successfully');
           loadApiKeys();
         } else {
-          alert(data.message);
+          notify.error(data.message);
         }
       } catch (error) {
-        alert('Failed to revoke API key');
+        notify.error('Failed to revoke API key');
       }
     }
 
@@ -284,10 +285,10 @@
             // Redirect to Stripe Checkout
             window.location.href = data.url;
           } else {
-            alert(data.message);
+            notify.error(data.message);
           }
         } catch (error) {
-          alert('Failed to create checkout session');
+          notify.error('Failed to create checkout session');
         }
       });
     });
@@ -305,13 +306,13 @@
             const data = await response.json();
 
             if (data.success) {
-              alert(data.message);
+              notify.success(data.message);
               location.reload();
             } else {
-              alert(data.message);
+              notify.error(data.message);
             }
           } catch (error) {
-            alert('Failed to cancel subscription');
+            notify.error('Failed to cancel subscription');
           }
         }
       });

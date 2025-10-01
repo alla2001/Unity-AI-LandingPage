@@ -23,9 +23,9 @@ function hashApiKey(apiKey) {
 }
 
 // Get user's API keys
-router.get('/', authenticateToken, (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
-    const apiKeys = getUserApiKeys.all(req.user.id);
+    const apiKeys = await getUserApiKeys(req.user.id);
 
     res.json({
       success: true,
@@ -42,7 +42,7 @@ router.get('/', authenticateToken, (req, res) => {
 });
 
 // Create new API key
-router.post('/create', authenticateToken, (req, res) => {
+router.post('/create', authenticateToken, async (req, res) => {
   try {
     const { name } = req.body;
     const keyName = name || 'Default Key';
@@ -53,7 +53,7 @@ router.post('/create', authenticateToken, (req, res) => {
     const keyPrefix = apiKey.substring(0, 12) + '...';
 
     // Store in database
-    const result = createApiKey.run(
+    const result = await createApiKey(
       req.user.id,
       keyHash,
       keyPrefix,
@@ -65,7 +65,7 @@ router.post('/create', authenticateToken, (req, res) => {
       success: true,
       message: 'API key created successfully. Save it now - you won\'t see it again!',
       apiKey: apiKey,
-      keyId: result.lastInsertRowid,
+      keyId: Number(result.lastInsertRowid),
       keyPrefix: keyPrefix
     });
 
@@ -79,14 +79,14 @@ router.post('/create', authenticateToken, (req, res) => {
 });
 
 // Deactivate/revoke an API key
-router.delete('/:keyId', authenticateToken, (req, res) => {
+router.delete('/:keyId', authenticateToken, async (req, res) => {
   try {
     const keyId = parseInt(req.params.keyId);
 
     // Deactivate the key (only if it belongs to the user)
-    const result = deactivateApiKey.run(keyId, req.user.id);
+    const result = await deactivateApiKey(keyId, req.user.id);
 
-    if (result.changes === 0) {
+    if (result.rowsAffected === 0) {
       return res.status(404).json({
         success: false,
         message: 'API key not found or already deactivated'

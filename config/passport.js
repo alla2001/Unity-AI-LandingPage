@@ -44,7 +44,7 @@ passport.use(new GoogleStrategy({
           profile.id,
           profile.displayName
         );
-        user = await getUserById(result.lastInsertRowid);
+        user = await getUserById(Number(result.lastInsertRowid));
       }
 
       return done(null, user);

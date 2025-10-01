@@ -60,7 +60,7 @@ const MODELS = {
       ]
     },
     responseType: 'image/png',
-    exampleRequest: `curl -X POST http://localhost:3002/api/v1/live-painting \\
+    exampleRequest: `curl -X POST https://theinteractivelabs.com/api/v1/live-painting \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -F "image=@painting.png" \\
   -F "prompt=beautiful sunset landscape, photorealistic" \\
@@ -120,7 +120,7 @@ const MODELS = {
       ]
     },
     responseType: 'image/png',
-    exampleRequest: `curl -X POST http://localhost:3002/api/v1/style-transfer \\
+    exampleRequest: `curl -X POST https://theinteractivelabs.com/api/v1/style-transfer \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -F "content_image=@photo.jpg" \\
   -F "style_image=@style.jpg" \\
