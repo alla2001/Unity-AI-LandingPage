@@ -114,11 +114,16 @@
         </div>
       </div>
 
-      <% if (user.subscription_status === 'active') { %>
-        <div style="margin-top: 20px;">
-          <button id="cancelSubscriptionBtn" class="btn-secondary">
-            Cancel Subscription
+      <% if (user.stripe_customer_id) { %>
+        <div style="margin-top: 20px; display: flex; gap: 1rem;">
+          <button id="managePaymentBtn" class="btn-primary">
+            💳 Manage Payment Methods
           </button>
+          <% if (user.subscription_status === 'active') { %>
+            <button id="cancelSubscriptionBtn" class="btn-secondary">
+              Cancel Subscription
+            </button>
+          <% } %>
         </div>
       <% } %>
     </div>
@@ -297,6 +302,29 @@
         }
       });
     });
+
+    // Manage payment methods (Stripe Customer Portal)
+    const managePaymentBtn = document.getElementById('managePaymentBtn');
+    if (managePaymentBtn) {
+      managePaymentBtn.addEventListener('click', async () => {
+        try {
+          const response = await fetch('/payment/create-portal-session', {
+            method: 'POST'
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            // Redirect to Stripe Customer Portal
+            window.location.href = data.url;
+          } else {
+            notify.error(data.message);
+          }
+        } catch (error) {
+          notify.error('Failed to open payment portal');
+        }
+      });
+    }
 
     // Cancel subscription
     const cancelBtn = document.getElementById('cancelSubscriptionBtn');

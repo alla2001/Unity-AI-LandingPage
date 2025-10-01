@@ -14,7 +14,9 @@ if (process.env.RESEND_API_KEY) {
 
 // Send verification email using Resend
 async function sendVerificationEmail(email, token) {
-  const verificationUrl = `${process.env.BASE_URL}/auth/verify-email?token=${token}`;
+  // Ensure BASE_URL doesn't have trailing slash
+  const baseUrl = process.env.BASE_URL.replace(/\/$/, '');
+  const verificationUrl = `${baseUrl}/auth/verify-email?token=${token}`;
 
   // If Resend not configured, just log the verification URL
   if (!resend) {

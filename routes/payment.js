@@ -47,6 +47,9 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
       customerId = customer.id;
     }
 
+    // Ensure BASE_URL doesn't have trailing slash
+    const baseUrl = process.env.BASE_URL.replace(/\/$/, '');
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -58,8 +61,8 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.BASE_URL}/dashboard?payment=success`,
-      cancel_url: `${process.env.BASE_URL}/dashboard?payment=cancelled`,
+      success_url: `${baseUrl}/dashboard?payment=success`,
+      cancel_url: `${baseUrl}/dashboard?payment=cancelled`,
       metadata: {
         userId: req.user.id.toString(),
         tier: tier
@@ -199,6 +202,37 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   } catch (error) {
     console.error('Webhook processing error:', error);
     res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// Create Stripe Customer Portal session for managing payment methods and subscriptions
+router.post('/create-portal-session', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.stripe_customer_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'No payment account found'
+      });
+    }
+
+    const baseUrl = process.env.BASE_URL.replace(/\/$/, '');
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: req.user.stripe_customer_id,
+      return_url: `${baseUrl}/dashboard`,
+    });
+
+    res.json({
+      success: true,
+      url: session.url
+    });
+
+  } catch (error) {
+    console.error('Portal session error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create portal session'
+    });
   }
 });
 
