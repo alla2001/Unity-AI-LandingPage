@@ -318,10 +318,15 @@
             // Redirect to Stripe Customer Portal
             window.location.href = data.url;
           } else {
-            notify.error(data.message);
+            // Show user-friendly error message
+            if (data.error === 'STRIPE_PORTAL_NOT_CONFIGURED') {
+              notify.error(data.message);
+            } else {
+              notify.error(data.message || 'Failed to open payment portal');
+            }
           }
         } catch (error) {
-          notify.error('Failed to open payment portal');
+          notify.error('Failed to open payment portal. Please try again later.');
         }
       });
     }

@@ -211,7 +211,7 @@ router.post('/create-portal-session', authenticateToken, async (req, res) => {
     if (!req.user.stripe_customer_id) {
       return res.status(400).json({
         success: false,
-        message: 'No payment account found'
+        message: 'No payment account found. Please subscribe to a plan first.'
       });
     }
 
@@ -229,9 +229,19 @@ router.post('/create-portal-session', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Portal session error:', error);
+
+    // Check if this is a configuration error
+    if (error.message && error.message.includes('configuration')) {
+      return res.status(500).json({
+        success: false,
+        message: 'Payment portal not configured. Please contact support or use the Cancel Subscription button instead.',
+        error: 'STRIPE_PORTAL_NOT_CONFIGURED'
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Failed to create portal session'
+      message: 'Failed to create portal session. Please try again later.'
     });
   }
 });
