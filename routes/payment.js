@@ -1,0 +1,253 @@
+// Payment routes - handles Stripe subscription management
+const express = require('express');
+const router = express.Router();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { authenticateToken } = require('../middleware/auth');
+const { updateUserSubscription, addTokensToUser, getUserById } = require('../config/database');
+
+// Subscription tier configuration
+const SUBSCRIPTION_TIERS = {
+  tier1: {
+    name: 'Starter',
+    price: 15,
+    tokens: 200,
+    priceId: process.env.STRIPE_PRICE_TIER1
+  },
+  tier2: {
+    name: 'Pro',
+    price: 35,
+    tokens: 1000,
+    priceId: process.env.STRIPE_PRICE_TIER2
+  }
+};
+
+// Create Stripe checkout session
+router.post('/create-checkout-session', authenticateToken, async (req, res) => {
+  try {
+    const { tier } = req.body;
+
+    if (!tier || !SUBSCRIPTION_TIERS[tier]) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid subscription tier'
+      });
+    }
+
+    const tierInfo = SUBSCRIPTION_TIERS[tier];
+    let customerId = req.user.stripe_customer_id;
+
+    // Create Stripe customer if doesn't exist
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: req.user.email,
+        metadata: {
+          userId: req.user.id.toString()
+        }
+      });
+      customerId = customer.id;
+    }
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      line_items: [
+        {
+          price: tierInfo.priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.BASE_URL}/dashboard?payment=success`,
+      cancel_url: `${process.env.BASE_URL}/dashboard?payment=cancelled`,
+      metadata: {
+        userId: req.user.id.toString(),
+        tier: tier
+      }
+    });
+
+    res.json({
+      success: true,
+      sessionId: session.id,
+      url: session.url
+    });
+
+  } catch (error) {
+    console.error('Checkout session error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create checkout session'
+    });
+  }
+});
+
+// Stripe webhook endpoint - handles subscription events
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    // Handle different event types
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const userId = parseInt(session.metadata.userId);
+        const tier = session.metadata.tier;
+        const tierInfo = SUBSCRIPTION_TIERS[tier];
+
+        // Get subscription details
+        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+
+        // Update user subscription in database
+        updateUserSubscription.run(
+          tier,
+          session.customer,
+          subscription.id,
+          subscription.status,
+          userId
+        );
+
+        // Add tokens to user account
+        addTokensToUser.run(tierInfo.tokens, userId);
+
+        console.log(`✓ Subscription created for user ${userId}: ${tier}`);
+        break;
+      }
+
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object;
+        const customer = await stripe.customers.retrieve(subscription.customer);
+        const userId = parseInt(customer.metadata.userId);
+
+        // Update subscription status
+        const user = getUserById.get(userId);
+        if (user) {
+          updateUserSubscription.run(
+            user.subscription_tier,
+            subscription.customer,
+            subscription.id,
+            subscription.status,
+            userId
+          );
+        }
+
+        console.log(`✓ Subscription updated for user ${userId}: ${subscription.status}`);
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+        const customer = await stripe.customers.retrieve(subscription.customer);
+        const userId = parseInt(customer.metadata.userId);
+
+        // Cancel subscription
+        updateUserSubscription.run(
+          null,
+          subscription.customer,
+          null,
+          'canceled',
+          userId
+        );
+
+        console.log(`✓ Subscription canceled for user ${userId}`);
+        break;
+      }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object;
+        const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+        const customer = await stripe.customers.retrieve(subscription.customer);
+        const userId = parseInt(customer.metadata.userId);
+
+        // Find which tier this subscription is
+        const user = getUserById.get(userId);
+        if (user && user.subscription_tier) {
+          const tierInfo = SUBSCRIPTION_TIERS[user.subscription_tier];
+
+          // Add monthly tokens
+          addTokensToUser.run(tierInfo.tokens, userId);
+
+          console.log(`✓ Monthly tokens added for user ${userId}: ${tierInfo.tokens} tokens`);
+        }
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+        const customer = await stripe.customers.retrieve(subscription.customer);
+        const userId = parseInt(customer.metadata.userId);
+
+        console.log(`✗ Payment failed for user ${userId}`);
+        break;
+      }
+    }
+
+    res.json({ received: true });
+
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// Cancel subscription
+router.post('/cancel-subscription', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.stripe_subscription_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'No active subscription found'
+      });
+    }
+
+    // Cancel subscription at period end
+    await stripe.subscriptions.update(req.user.stripe_subscription_id, {
+      cancel_at_period_end: true
+    });
+
+    res.json({
+      success: true,
+      message: 'Subscription will be canceled at the end of the billing period'
+    });
+
+  } catch (error) {
+    console.error('Cancel subscription error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel subscription'
+    });
+  }
+});
+
+// Get subscription tiers info
+router.get('/tiers', (req, res) => {
+  res.json({
+    success: true,
+    tiers: {
+      tier1: {
+        name: SUBSCRIPTION_TIERS.tier1.name,
+        price: SUBSCRIPTION_TIERS.tier1.price,
+        tokens: SUBSCRIPTION_TIERS.tier1.tokens
+      },
+      tier2: {
+        name: SUBSCRIPTION_TIERS.tier2.name,
+        price: SUBSCRIPTION_TIERS.tier2.price,
+        tokens: SUBSCRIPTION_TIERS.tier2.tokens
+      }
+    }
+  });
+});
+
+module.exports = router;

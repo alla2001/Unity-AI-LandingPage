@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - AI SaaS Platform</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar dashboard-nav">
+    <div class="container">
+      <div class="nav-brand">
+        <h2>AI SaaS Dashboard</h2>
+      </div>
+      <div class="nav-links">
+        <span>👤 <%= user.email %></span>
+        <form action="/auth/logout" method="POST" style="display: inline;">
+          <button type="submit" class="btn-secondary">Logout</button>
+        </form>
+      </div>
+    </div>
+  </nav>
+
+  <div class="dashboard-container">
+    <!-- Alerts -->
+    <% if (typeof payment !== 'undefined' && payment === 'success') { %>
+      <div class="alert alert-success">
+        ✓ Subscription activated successfully! Your tokens have been added.
+      </div>
+    <% } %>
+    <% if (typeof payment !== 'undefined' && payment === 'cancelled') { %>
+      <div class="alert alert-warning">
+        Payment was cancelled. Your subscription was not activated.
+      </div>
+    <% } %>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">🎟️</div>
+        <div class="stat-content">
+          <h3>Tokens Remaining</h3>
+          <div class="stat-value"><%= user.tokens %></div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">💳</div>
+        <div class="stat-content">
+          <h3>Subscription</h3>
+          <div class="stat-value">
+            <% if (user.subscription_tier) { %>
+              <%= user.subscription_tier === 'tier1' ? 'Starter' : 'Pro' %>
+            <% } else { %>
+              Free
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-content">
+          <h3>Status</h3>
+          <div class="stat-value">
+            <% if (user.subscription_status === 'active') { %>
+              <span class="status-active">Active</span>
+            <% } else { %>
+              <span class="status-inactive">Inactive</span>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subscription Section -->
+    <div class="dashboard-section">
+      <h2>Subscription Plans</h2>
+      <p>Upgrade your plan to get more tokens each month</p>
+
+      <div class="pricing-grid-small">
+        <div class="pricing-card-small">
+          <h3>Starter</h3>
+          <div class="price">$15<span>/month</span></div>
+          <p>200 tokens per month</p>
+          <button
+            class="btn-primary btn-block subscribe-btn"
+            data-tier="tier1"
+            <%= user.subscription_tier === 'tier1' ? 'disabled' : '' %>
+          >
+            <%= user.subscription_tier === 'tier1' ? 'Current Plan' : 'Subscribe' %>
+          </button>
+        </div>
+
+        <div class="pricing-card-small featured">
+          <h3>Pro</h3>
+          <div class="price">$35<span>/month</span></div>
+          <p>1000 tokens per month</p>
+          <button
+            class="btn-primary btn-block subscribe-btn"
+            data-tier="tier2"
+            <%= user.subscription_tier === 'tier2' ? 'disabled' : '' %>
+          >
+            <%= user.subscription_tier === 'tier2' ? 'Current Plan' : 'Subscribe' %>
+          </button>
+        </div>
+      </div>
+
+      <% if (user.subscription_status === 'active') { %>
+        <div style="margin-top: 20px;">
+          <button id="cancelSubscriptionBtn" class="btn-secondary">
+            Cancel Subscription
+          </button>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- API Keys Section -->
+    <div class="dashboard-section">
+      <div class="section-header">
+        <h2>API Keys</h2>
+        <button id="createKeyBtn" class="btn-primary">+ Create New Key</button>
+      </div>
+
+      <div id="apiKeysList" class="api-keys-list">
+        <!-- API keys will be loaded here -->
+      </div>
+
+      <!-- New API Key Modal (shown when key is created) -->
+      <div id="newKeyModal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <h3>🎉 API Key Created!</h3>
+          <p><strong>Save this key now - you won't see it again!</strong></p>
+          <div class="api-key-display">
+            <code id="newApiKeyValue"></code>
+          </div>
+          <button id="copyKeyBtn" class="btn-primary">Copy to Clipboard</button>
+          <button id="closeModalBtn" class="btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Available AI Models -->
+    <div class="dashboard-section">
+      <h2>Available AI Models</h2>
+      <p>Explore our AI models and integrate them into your applications</p>
+
+      <div id="modelsList" class="features-grid" style="margin-top: 1.5rem;">
+        <!-- Models will be loaded here -->
+      </div>
+    </div>
+
+    <!-- API Documentation -->
+    <div class="dashboard-section">
+      <h2>API Documentation</h2>
+      <p>Select a model above to see its API documentation and example code.</p>
+
+      <div id="apiDocumentation">
+        <!-- API docs will be loaded here when a model is selected -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const stripe = Stripe('<%= stripePublishableKey %>');
+
+    // Load API keys and models on page load
+    loadApiKeys();
+    loadModels();
+
+    // Create new API key
+    document.getElementById('createKeyBtn').addEventListener('click', async () => {
+      const keyName = prompt('Enter a name for this API key (optional):');
+
+      try {
+        const response = await fetch('/apikey/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: keyName || 'Default Key' })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          document.getElementById('newApiKeyValue').textContent = data.apiKey;
+          document.getElementById('newKeyModal').style.display = 'flex';
+          loadApiKeys();
+        } else {
+          alert(data.message);
+        }
+      } catch (error) {
+        alert('Failed to create API key');
+      }
+    });
+
+    // Copy API key
+    document.getElementById('copyKeyBtn').addEventListener('click', () => {
+      const keyValue = document.getElementById('newApiKeyValue').textContent;
+      navigator.clipboard.writeText(keyValue);
+      alert('API key copied to clipboard!');
+    });
+
+    // Close modal
+    document.getElementById('closeModalBtn').addEventListener('click', () => {
+      document.getElementById('newKeyModal').style.display = 'none';
+    });
+
+    // Load API keys
+    async function loadApiKeys() {
+      try {
+        const response = await fetch('/apikey');
+        const data = await response.json();
+
+        if (data.success) {
+          const container = document.getElementById('apiKeysList');
+          if (data.apiKeys.length === 0) {
+            container.innerHTML = '<p>No API keys yet. Create one to get started!</p>';
+          } else {
+            container.innerHTML = data.apiKeys.map(key => `
+              <div class="api-key-item ${key.is_active ? '' : 'inactive'}">
+                <div class="api-key-info">
+                  <strong>${key.name}</strong>
+                  <code>${key.key_prefix}</code>
+                  <span class="api-key-status">${key.is_active ? 'Active' : 'Revoked'}</span>
+                </div>
+                ${key.is_active ? `
+                  <button class="btn-danger btn-small revoke-key-btn" data-key-id="${key.id}">
+                    Revoke
+                  </button>
+                ` : ''}
+              </div>
+            `).join('');
+
+            // Add event listeners to revoke buttons
+            document.querySelectorAll('.revoke-key-btn').forEach(btn => {
+              btn.addEventListener('click', async (e) => {
+                const keyId = e.target.dataset.keyId;
+                if (confirm('Are you sure you want to revoke this API key? This cannot be undone.')) {
+                  await revokeKey(keyId);
+                }
+              });
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load API keys:', error);
+      }
+    }
+
+    // Revoke API key
+    async function revokeKey(keyId) {
+      try {
+        const response = await fetch(`/apikey/${keyId}`, { method: 'DELETE' });
+        const data = await response.json();
+
+        if (data.success) {
+          alert('API key revoked successfully');
+          loadApiKeys();
+        } else {
+          alert(data.message);
+        }
+      } catch (error) {
+        alert('Failed to revoke API key');
+      }
+    }
+
+    // Subscribe button handlers
+    document.querySelectorAll('.subscribe-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const tier = e.target.dataset.tier;
+
+        try {
+          const response = await fetch('/payment/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tier })
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            // Redirect to Stripe Checkout
+            window.location.href = data.url;
+          } else {
+            alert(data.message);
+          }
+        } catch (error) {
+          alert('Failed to create checkout session');
+        }
+      });
+    });
+
+    // Cancel subscription
+    const cancelBtn = document.getElementById('cancelSubscriptionBtn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to cancel your subscription? You will continue to have access until the end of your billing period.')) {
+          try {
+            const response = await fetch('/payment/cancel-subscription', {
+              method: 'POST'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+              alert(data.message);
+              location.reload();
+            } else {
+              alert(data.message);
+            }
+          } catch (error) {
+            alert('Failed to cancel subscription');
+          }
+        }
+      });
+    }
+
+    // Load available AI models
+    async function loadModels() {
+      try {
+        const response = await fetch('/api/v1/models');
+        const data = await response.json();
+
+        if (data.success) {
+          const container = document.getElementById('modelsList');
+          if (data.models.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-secondary);">No models available at the moment.</p>';
+          } else {
+            container.innerHTML = data.models.map(model => `
+              <div class="feature-card" style="cursor: pointer;" onclick="showModelDocs('${model.id}')">
+                <div class="feature-icon">${model.featured ? '⭐' : '🤖'}</div>
+                <h3>${model.name}</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">${model.description}</p>
+                <p style="font-size: 0.875rem; color: var(--accent-primary);">
+                  ${model.tokensPerRequest} token${model.tokensPerRequest > 1 ? 's' : ''} per request
+                </p>
+                <button class="btn-primary btn-small" style="margin-top: 1rem;">
+                  View API Docs
+                </button>
+              </div>
+            `).join('');
+
+            // Load the first model's documentation by default
+            if (data.models.length > 0) {
+              showModelDocs(data.models[0].id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load models:', error);
+        document.getElementById('modelsList').innerHTML =
+          '<p style="color: var(--error);">Failed to load models. Please refresh the page.</p>';
+      }
+    }
+
+    // Show model documentation
+    async function showModelDocs(modelId) {
+      try {
+        const response = await fetch(`/api/v1/models/${modelId}`);
+        const data = await response.json();
+
+        if (data.success) {
+          const model = data.model;
+          const docsContainer = document.getElementById('apiDocumentation');
+
+          // Build request schema description
+          const schemaFields = model.requestSchema.fields.map(field => {
+            return `<li><strong>${field.name}</strong> (${field.type}${field.required ? ', required' : ', optional'}): ${field.description}</li>`;
+          }).join('');
+
+          docsContainer.innerHTML = `
+            <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">${model.name}</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">${model.description}</p>
+
+            <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+              <p style="margin-bottom: 0.5rem;"><strong>Endpoint:</strong> <code style="color: var(--accent-light);">${model.method} ${model.endpoint}</code></p>
+              <p style="margin-bottom: 0.5rem;"><strong>Tokens per request:</strong> ${model.tokensPerRequest}</p>
+              <p style="margin-bottom: 0;"><strong>Response type:</strong> ${model.responseType}</p>
+            </div>
+
+            <h4 style="color: var(--text-primary); margin-bottom: 0.75rem;">Request Parameters</h4>
+            <ul style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.8;">
+              ${schemaFields}
+            </ul>
+
+            <h4 style="color: var(--text-primary); margin-bottom: 0.75rem;">Example Request</h4>
+            <div class="code-block">
+              <pre><code>${model.exampleRequest.replace('YOUR_API_KEY', 'your_actual_api_key_here')}</code></pre>
+            </div>
+
+            ${model.limitations ? `
+              <h4 style="color: var(--text-primary); margin: 1.5rem 0 0.75rem;">Limitations</h4>
+              <ul style="color: var(--text-secondary); line-height: 1.8;">
+                <li>Max file size: ${(model.limitations.maxFileSize / 1024 / 1024).toFixed(0)}MB</li>
+                <li>Timeout: ${(model.limitations.timeout / 1000).toFixed(0)} seconds</li>
+                ${model.limitations.maxImageDimensions ?
+                  `<li>Max dimensions: ${model.limitations.maxImageDimensions.width}x${model.limitations.maxImageDimensions.height}px</li>`
+                  : ''}
+              </ul>
+            ` : ''}
+          `;
+        }
+      } catch (error) {
+        console.error('Failed to load model docs:', error);
+        document.getElementById('apiDocumentation').innerHTML =
+          '<p style="color: var(--error);">Failed to load documentation. Please try again.</p>';
+      }
+    }
+  </script>
+</body>
+</html>
