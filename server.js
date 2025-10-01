@@ -126,11 +126,13 @@ initializeDatabase().catch(err => {
 const { startTokenRenewalScheduler } = require('./config/scheduler');
 startTokenRenewalScheduler();
 
-// Security: CSRF Protection (skip for API and webhook routes)
+// Security: CSRF Protection (skip for API, webhook, and auth JSON endpoints)
 const csrfProtection = csrf({ cookie: true });
 app.use((req, res, next) => {
-  // Skip CSRF for API routes (they use API keys) and webhooks
-  if (req.path.startsWith('/api/v1/') || req.path === '/payment/webhook') {
+  // Skip CSRF for API routes (they use API keys), webhooks, and auth endpoints (they have rate limiting)
+  if (req.path.startsWith('/api/v1/') ||
+      req.path === '/payment/webhook' ||
+      req.path.startsWith('/auth/')) {
     return next();
   }
   csrfProtection(req, res, next);
