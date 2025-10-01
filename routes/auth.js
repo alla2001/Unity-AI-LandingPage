@@ -165,10 +165,17 @@ router.post('/login',
 // Logout endpoint
 router.post('/logout', (req, res) => {
   res.clearCookie('token');
-  req.logout((err) => {
-    if (err) console.error('Logout error:', err);
+
+  // If user is logged in via Passport (Google OAuth), also logout from session
+  if (req.logout) {
+    req.logout((err) => {
+      if (err) console.error('Passport logout error:', err);
+      res.redirect('/');
+    });
+  } else {
+    // For JWT-only users, just redirect after clearing cookie
     res.redirect('/');
-  });
+  }
 });
 
 // Google OAuth routes
