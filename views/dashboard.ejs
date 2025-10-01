@@ -26,6 +26,11 @@
 
   <div class="dashboard-container">
     <!-- Alerts -->
+    <% if (!user.email_verified) { %>
+      <div class="alert alert-warning">
+        📧 <strong>Please verify your email to receive your 20 free tokens!</strong> Check your inbox for the verification link.
+      </div>
+    <% } %>
     <% if (typeof payment !== 'undefined' && payment === 'success') { %>
       <div class="alert alert-success">
         ✓ Subscription activated successfully! Your tokens have been added.

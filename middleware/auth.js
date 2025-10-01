@@ -26,7 +26,8 @@ async function authenticateToken(req, res, next) {
       tokens: user.tokens,
       subscription_tier: user.subscription_tier,
       subscription_status: user.subscription_status,
-      stripe_customer_id: user.stripe_customer_id
+      stripe_customer_id: user.stripe_customer_id,
+      email_verified: user.email_verified
     };
 
     next();

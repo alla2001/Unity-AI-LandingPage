@@ -78,7 +78,7 @@ const dbHelpers = {
   // User operations
   async createUser(email, passwordHash) {
     const result = await db.execute({
-      sql: 'INSERT INTO users (email, password_hash, tokens) VALUES (?, ?, 20)',
+      sql: 'INSERT INTO users (email, password_hash, tokens) VALUES (?, ?, 0)',
       args: [email, passwordHash]
     });
     return result;
@@ -137,7 +137,7 @@ const dbHelpers = {
   // Google OAuth operations
   async createGoogleUser(email, googleId, displayName) {
     const result = await db.execute({
-      sql: 'INSERT INTO users (email, google_id, display_name, tokens) VALUES (?, ?, ?, 20)',
+      sql: 'INSERT INTO users (email, google_id, display_name, tokens, email_verified) VALUES (?, ?, ?, 20, 1)',
       args: [email, googleId, displayName]
     });
     return result;

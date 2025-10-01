@@ -10,7 +10,8 @@ const {
   getUserByEmail,
   setVerificationToken,
   getUserByVerificationToken,
-  verifyEmail
+  verifyEmail,
+  addTokensToUser
 } = require('../config/database');
 const { redirectIfAuthenticated } = require('../middleware/auth');
 const { sendVerificationEmail } = require('../config/email');
@@ -74,7 +75,7 @@ router.post('/register',
 
       res.json({
         success: true,
-        message: 'Account created successfully! Please verify your email to get 20 free tokens.',
+        message: 'Account created successfully! Please check your email and click the verification link to receive your 20 free tokens.',
         redirect: '/dashboard'
       });
 
@@ -216,10 +217,11 @@ router.get('/verify-email', async (req, res) => {
       return res.redirect('/dashboard?success=Email already verified');
     }
 
-    // Verify email
+    // Verify email and award 20 free tokens
     await verifyEmail(user.id);
+    await addTokensToUser(20, user.id);
 
-    res.redirect('/dashboard?success=Email verified successfully! Enjoy your tokens.');
+    res.redirect('/dashboard?success=Email verified successfully! You have received 20 free tokens.');
   } catch (error) {
     console.error('Email verification error:', error);
     res.redirect('/dashboard?error=Verification failed');

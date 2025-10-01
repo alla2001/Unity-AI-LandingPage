@@ -31,7 +31,7 @@ async function sendVerificationEmail(email, token) {
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to: [email],
-      subject: 'Verify Your Email - AI Live Paint',
+      subject: 'Verify Your Email to Get 20 Free Tokens - AI Live Paint',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #ffffff;">
           <div style="text-align: center; margin-bottom: 30px;">
@@ -39,16 +39,20 @@ async function sendVerificationEmail(email, token) {
           </div>
 
           <div style="background-color: #2a2a2a; padding: 30px; border-radius: 10px;">
-            <h2 style="color: #6366f1; margin-top: 0;">Verify Your Email</h2>
+            <h2 style="color: #6366f1; margin-top: 0;">🎉 Verify Your Email to Get 20 Free Tokens!</h2>
 
             <p style="font-size: 16px; line-height: 1.6; color: #e5e7eb;">
-              Welcome to AI Live Paint! Click the button below to verify your email address and activate your account with 20 free tokens.
+              Welcome to AI Live Paint! You're just one step away from getting started.
+            </p>
+
+            <p style="font-size: 16px; line-height: 1.6; color: #e5e7eb;">
+              <strong>Click the button below to verify your email address and instantly receive 20 free tokens</strong> to start transforming your images with AI!
             </p>
 
             <div style="text-align: center; margin: 30px 0;">
               <a href="${verificationUrl}"
                  style="display: inline-block; padding: 15px 40px; background-color: #6366f1; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                Verify Email
+                Verify Email & Get 20 Free Tokens
               </a>
             </div>
 
@@ -56,6 +60,15 @@ async function sendVerificationEmail(email, token) {
               Or copy and paste this link into your browser:<br>
               <a href="${verificationUrl}" style="color: #6366f1; word-break: break-all;">${verificationUrl}</a>
             </p>
+
+            <div style="background-color: #1a1a1a; padding: 15px; border-radius: 5px; margin-top: 20px;">
+              <p style="font-size: 14px; color: #e5e7eb; margin: 0;">
+                💡 <strong>What you'll get:</strong><br>
+                • 20 free tokens immediately upon verification<br>
+                • Access to AI Live Painting API<br>
+                • Transform your painted images into realistic artwork
+              </p>
+            </div>
 
             <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
               If you didn't create an account, you can safely ignore this email.
