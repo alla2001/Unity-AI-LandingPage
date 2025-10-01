@@ -33,7 +33,7 @@ const upload = multer({
 });
 
 // Middleware to authenticate API key
-function authenticateApiKey(req, res, next) {
+async function authenticateApiKey(req, res, next) {
   const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
 
   if (!apiKey) {
@@ -47,7 +47,7 @@ function authenticateApiKey(req, res, next) {
   try {
     // Hash the provided key and look it up
     const keyHash = hashApiKey(apiKey);
-    const keyData = getApiKeyByHash.get(keyHash);
+    const keyData = await getApiKeyByHash(keyHash);
 
     if (!keyData) {
       return res.status(401).json({
@@ -104,9 +104,9 @@ router.post('/v1/live-painting', authenticateApiKey, upload.fields([{ name: 'ima
     const imageFile = req.files.image[0];
 
     // Deduct token BEFORE making the API call (to prevent abuse)
-    const deductResult = deductToken.run(req.apiKeyData.user_id);
+    const deductResult = await deductToken(req.apiKeyData.user_id);
 
-    if (deductResult.changes === 0) {
+    if (deductResult.rowsAffected === 0) {
       return res.status(402).json({
         success: false,
         error: 'Insufficient tokens',
@@ -161,10 +161,10 @@ router.post('/v1/live-painting', authenticateApiKey, upload.fields([{ name: 'ima
     );
 
     // Update API key last used timestamp
-    updateApiKeyLastUsed.run(req.apiKeyData.id);
+    await updateApiKeyLastUsed(req.apiKeyData.id);
 
     // Log usage
-    logApiUsage.run(
+    await logApiUsage(
       req.apiKeyData.user_id,
       req.apiKeyData.id,
       '/api/v1/live-painting',

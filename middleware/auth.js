@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const { getUserById } = require('../config/database');
 
 // Middleware to verify JWT token and attach user to request
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
   const token = req.cookies.token;
 
   if (!token) {
@@ -12,7 +12,7 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = getUserById.get(decoded.userId);
+    const user = await getUserById(decoded.userId);
 
     if (!user) {
       res.clearCookie('token');

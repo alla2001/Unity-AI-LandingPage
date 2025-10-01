@@ -36,7 +36,7 @@ router.post('/register',
       const { email, password } = req.body;
 
       // Check if user already exists
-      const existingUser = getUserByEmail.get(email);
+      const existingUser = await getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({
           success: false,
@@ -48,12 +48,12 @@ router.post('/register',
       const passwordHash = await bcrypt.hash(password, 10);
 
       // Create user with 20 free tokens
-      const result = createUser.run(email, passwordHash);
+      const result = await createUser(email, passwordHash);
       const userId = result.lastInsertRowid;
 
       // Generate verification token
       const verificationToken = crypto.randomBytes(32).toString('hex');
-      setVerificationToken.run(verificationToken, userId);
+      await setVerificationToken(verificationToken, userId);
 
       // Send verification email
       await sendVerificationEmail(email, verificationToken);
@@ -108,7 +108,7 @@ router.post('/login',
       const { email, password } = req.body;
 
       // Find user
-      const user = getUserByEmail.get(email);
+      const user = await getUserByEmail(email);
       if (!user) {
         return res.status(401).json({
           success: false,
@@ -206,7 +206,7 @@ router.get('/verify-email', async (req, res) => {
     }
 
     // Find user by verification token
-    const user = getUserByVerificationToken.get(token);
+    const user = await getUserByVerificationToken(token);
 
     if (!user) {
       return res.redirect('/dashboard?error=Invalid or expired verification link');
@@ -217,7 +217,7 @@ router.get('/verify-email', async (req, res) => {
     }
 
     // Verify email
-    verifyEmail.run(user.id);
+    await verifyEmail(user.id);
 
     res.redirect('/dashboard?success=Email verified successfully! Enjoy your tokens.');
   } catch (error) {

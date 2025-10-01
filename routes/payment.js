@@ -110,7 +110,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const subscription = await stripe.subscriptions.retrieve(session.subscription);
 
         // Update user subscription in database
-        updateUserSubscription.run(
+        await updateUserSubscription(
           tier,
           session.customer,
           subscription.id,
@@ -119,7 +119,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         );
 
         // Add tokens to user account
-        addTokensToUser.run(tierInfo.tokens, userId);
+        await addTokensToUser(tierInfo.tokens, userId);
 
         console.log(`✓ Subscription created for user ${userId}: ${tier}`);
         break;
@@ -131,9 +131,9 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const userId = parseInt(customer.metadata.userId);
 
         // Update subscription status
-        const user = getUserById.get(userId);
+        const user = await getUserById(userId);
         if (user) {
-          updateUserSubscription.run(
+          await updateUserSubscription(
             user.subscription_tier,
             subscription.customer,
             subscription.id,
@@ -152,7 +152,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const userId = parseInt(customer.metadata.userId);
 
         // Cancel subscription
-        updateUserSubscription.run(
+        await updateUserSubscription(
           null,
           subscription.customer,
           null,
@@ -171,12 +171,12 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const userId = parseInt(customer.metadata.userId);
 
         // Find which tier this subscription is
-        const user = getUserById.get(userId);
+        const user = await getUserById(userId);
         if (user && user.subscription_tier) {
           const tierInfo = SUBSCRIPTION_TIERS[user.subscription_tier];
 
           // Add monthly tokens
-          addTokensToUser.run(tierInfo.tokens, userId);
+          await addTokensToUser(tierInfo.tokens, userId);
 
           console.log(`✓ Monthly tokens added for user ${userId}: ${tierInfo.tokens} tokens`);
         }
