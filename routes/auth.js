@@ -21,7 +21,11 @@ router.post('/register',
   redirectIfAuthenticated,
   [
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+    body('password')
+      .isLength({ min: 8 })
+      .withMessage('Password must be at least 8 characters')
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+      .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number')
   ],
   async (req, res) => {
     try {
@@ -70,6 +74,7 @@ router.post('/register',
       res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
 
@@ -137,6 +142,7 @@ router.post('/login',
       res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
@@ -190,6 +196,7 @@ router.get('/google/callback',
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
@@ -211,6 +218,11 @@ router.get('/verify-email', async (req, res) => {
 
     if (!user) {
       return res.redirect('/dashboard?error=Invalid or expired verification link');
+    }
+
+    // Check if token has expired
+    if (user.verification_token_expires && new Date(user.verification_token_expires) < new Date()) {
+      return res.redirect('/dashboard?error=Verification link has expired. Please request a new one.');
     }
 
     if (user.email_verified) {

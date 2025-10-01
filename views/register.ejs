@@ -32,9 +32,14 @@
             id="password"
             name="password"
             required
-            minlength="6"
-            placeholder="At least 6 characters"
+            minlength="8"
+            pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$"
+            title="Password must be at least 8 characters with uppercase, lowercase, and number"
+            placeholder="At least 8 characters"
           >
+          <small style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; display: block;">
+            Must contain uppercase, lowercase, and number
+          </small>
         </div>
 
         <div class="form-group">

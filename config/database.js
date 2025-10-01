@@ -25,6 +25,7 @@ async function initializeDatabase() {
         subscription_status TEXT DEFAULT NULL,
         email_verified INTEGER DEFAULT 0,
         verification_token TEXT DEFAULT NULL,
+        verification_token_expires DATETIME DEFAULT NULL,
         last_token_reset DATETIME DEFAULT CURRENT_TIMESTAMP,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -162,7 +163,7 @@ const dbHelpers = {
   // Email verification operations
   async setVerificationToken(token, id) {
     const result = await db.execute({
-      sql: 'UPDATE users SET verification_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      sql: 'UPDATE users SET verification_token = ?, verification_token_expires = datetime("now", "+24 hours"), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       args: [token, id]
     });
     return result;

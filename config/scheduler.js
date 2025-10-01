@@ -14,10 +14,10 @@ function startTokenRenewalScheduler() {
   console.log('✓ Token renewal scheduler started');
 }
 
-function checkAndResetTokens() {
+async function checkAndResetTokens() {
   try {
     // Get all free tier users who need token reset (30 days passed)
-    const users = getUsersNeedingTokenReset.all();
+    const users = await getUsersNeedingTokenReset();
 
     if (users.length === 0) {
       console.log('Token renewal check: No users need token reset');
@@ -30,7 +30,7 @@ function checkAndResetTokens() {
     let successCount = 0;
     for (const user of users) {
       try {
-        resetUserTokens.run(user.id);
+        await resetUserTokens(user.id);
         successCount++;
         console.log(`✓ Reset tokens for user: ${user.email}`);
       } catch (error) {

@@ -88,7 +88,7 @@ async function authenticateApiKey(req, res, next) {
 }
 
 // AI Live Paint endpoint - POST /api/v1/live-painting
-router.post('/v1/live-painting', authenticateApiKey, upload.fields([{ name: 'image', maxCount: 1 }]), async (req, res) => {
+router.post('/live-painting', authenticateApiKey, upload.fields([{ name: 'image', maxCount: 1 }]), async (req, res) => {
   const startTime = Date.now();
 
   try {
@@ -208,7 +208,7 @@ router.post('/v1/live-painting', authenticateApiKey, upload.fields([{ name: 'ima
 });
 
 // Health check endpoint
-router.get('/v1/health', (req, res) => {
+router.get('/health', (req, res) => {
   res.json({
     success: true,
     status: 'operational',
@@ -218,7 +218,7 @@ router.get('/v1/health', (req, res) => {
 });
 
 // Get available AI models (public endpoint - no auth required)
-router.get('/v1/models', (req, res) => {
+router.get('/models', (req, res) => {
   try {
     const models = getEnabledModels();
     const modelsInfo = models.map(model => ({
@@ -250,7 +250,7 @@ router.get('/v1/models', (req, res) => {
 });
 
 // Get specific model details (public endpoint)
-router.get('/v1/models/:modelId', (req, res) => {
+router.get('/models/:modelId', (req, res) => {
   try {
     const model = getModelById(req.params.modelId);
 
@@ -289,7 +289,7 @@ router.get('/v1/models/:modelId', (req, res) => {
 });
 
 // Get API usage statistics (with API key authentication)
-router.get('/v1/usage', authenticateApiKey, (req, res) => {
+router.get('/usage', authenticateApiKey, (req, res) => {
   try {
     res.json({
       success: true,

@@ -14,12 +14,70 @@ const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const csrf = require('csurf');
 const { initializeDatabase } = require('./config/database');
 const passport = require('./config/passport');
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Security: Helmet - Set security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://checkout.stripe.com"],
+      connectSrc: ["'self'", "https://api.stripe.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      styleSrc: ["'self'", "'unsafe-inline'"]
+    }
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// Security: Rate Limiting
+// General rate limiter for all routes
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window
+  message: 'Too many requests from this IP, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Strict rate limiter for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per window
+  message: 'Too many login attempts, please try again in 15 minutes',
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// API rate limiter (per IP or API key)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20, // 20 requests per minute
+  message: 'API rate limit exceeded, please slow down',
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Use API key user ID if available, otherwise IP
+    return req.apiKeyData?.user_id?.toString() || req.ip;
+  }
+});
+
+// Apply general rate limiter to all routes
+app.use(generalLimiter);
 
 // Middleware Setup
 // Parse JSON bodies (except for Stripe webhook which needs raw body)
@@ -41,6 +99,8 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'strict',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -66,6 +126,22 @@ initializeDatabase().catch(err => {
 const { startTokenRenewalScheduler } = require('./config/scheduler');
 startTokenRenewalScheduler();
 
+// Security: CSRF Protection (skip for API and webhook routes)
+const csrfProtection = csrf({ cookie: true });
+app.use((req, res, next) => {
+  // Skip CSRF for API routes (they use API keys) and webhooks
+  if (req.path.startsWith('/api/v1/') || req.path === '/payment/webhook') {
+    return next();
+  }
+  csrfProtection(req, res, next);
+});
+
+// Make CSRF token available to all views
+app.use((req, res, next) => {
+  res.locals.csrfToken = req.csrfToken ? req.csrfToken() : null;
+  next();
+});
+
 // Import routes
 const pageRoutes = require('./routes/pages');
 const authRoutes = require('./routes/auth');
@@ -73,12 +149,16 @@ const paymentRoutes = require('./routes/payment');
 const apiKeyRoutes = require('./routes/apikey');
 const apiRoutes = require('./routes/api');
 
+// Export rate limiters for use in routes
+app.locals.authLimiter = authLimiter;
+app.locals.apiLimiter = apiLimiter;
+
 // Mount routes
 app.use('/', pageRoutes);              // Landing, login, register, dashboard pages
-app.use('/auth', authRoutes);          // Authentication endpoints
+app.use('/auth', authLimiter, authRoutes);          // Authentication endpoints (with rate limiting)
 app.use('/payment', paymentRoutes);    // Stripe payment & subscription endpoints
 app.use('/apikey', apiKeyRoutes);      // API key management endpoints
-app.use('/api', apiRoutes);            // AI API endpoints
+app.use('/api/v1', apiLimiter, apiRoutes);            // AI API endpoints (with rate limiting)
 
 // Health check endpoint
 app.get('/health', (req, res) => {
