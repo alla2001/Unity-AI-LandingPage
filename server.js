@@ -16,7 +16,6 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const csrf = require('csurf');
 const { initializeDatabase } = require('./config/database');
 const passport = require('./config/passport');
 
@@ -126,23 +125,6 @@ initializeDatabase().catch(err => {
 const { startTokenRenewalScheduler } = require('./config/scheduler');
 startTokenRenewalScheduler();
 
-// Security: CSRF Protection (skip for API, webhook, and auth JSON endpoints)
-const csrfProtection = csrf({ cookie: true });
-app.use((req, res, next) => {
-  // Skip CSRF for API routes (they use API keys), webhooks, and auth endpoints (they have rate limiting)
-  if (req.path.startsWith('/api/v1/') ||
-      req.path === '/payment/webhook' ||
-      req.path.startsWith('/auth/')) {
-    return next();
-  }
-  csrfProtection(req, res, next);
-});
-
-// Make CSRF token available to all views
-app.use((req, res, next) => {
-  res.locals.csrfToken = req.csrfToken ? req.csrfToken() : null;
-  next();
-});
 
 // Import routes
 const pageRoutes = require('./routes/pages');
