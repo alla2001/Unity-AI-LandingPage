@@ -133,19 +133,50 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const customer = await stripe.customers.retrieve(subscription.customer);
         const userId = parseInt(customer.metadata.userId);
 
-        // Update subscription status
+        // Detect which tier based on the price ID in the subscription
+        let newTier = null;
+        if (subscription.items && subscription.items.data.length > 0) {
+          const priceId = subscription.items.data[0].price.id;
+
+          // Find matching tier
+          for (const [tierKey, tierInfo] of Object.entries(SUBSCRIPTION_TIERS)) {
+            if (tierInfo.priceId === priceId) {
+              newTier = tierKey;
+              break;
+            }
+          }
+        }
+
+        // If we detected a tier change, add tokens for the new tier
         const user = await getUserById(userId);
-        if (user) {
+        if (user && newTier && newTier !== user.subscription_tier) {
+          const tierInfo = SUBSCRIPTION_TIERS[newTier];
+
+          // Update subscription with new tier
           await updateUserSubscription(
-            user.subscription_tier,
+            newTier,
             subscription.customer,
             subscription.id,
             subscription.status,
             userId
           );
-        }
 
-        console.log(`✓ Subscription updated for user ${userId}: ${subscription.status}`);
+          // Add tokens for the upgrade
+          await addTokensToUser(tierInfo.tokens, userId);
+
+          console.log(`✓ Subscription upgraded for user ${userId}: ${user.subscription_tier} → ${newTier}, added ${tierInfo.tokens} tokens`);
+        } else {
+          // Just update status if no tier change
+          await updateUserSubscription(
+            user?.subscription_tier || newTier,
+            subscription.customer,
+            subscription.id,
+            subscription.status,
+            userId
+          );
+
+          console.log(`✓ Subscription updated for user ${userId}: ${subscription.status}`);
+        }
         break;
       }
 
